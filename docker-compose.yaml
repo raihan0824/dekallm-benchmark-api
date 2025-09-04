@@ -1,0 +1,11 @@
+version: '3.3'
+services:
+  app:
+    container_name: ${APP_NAME}
+    build: ./
+    restart: always
+    environment:
+      - NUM_GPU=${NUM_GPU}
+      - MODEL_PATH=${MODEL_PATH}
+    ports:
+      - ${PORT}:5001

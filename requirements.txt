@@ -1,0 +1,14 @@
+requests
+fastapi[all]
+pandas
+pydantic
+uuid
+decorator
+requests
+schedule
+openai
+psycopg2-binary
+python-dotenv
+uvicorn
+tenacity
+packaging
