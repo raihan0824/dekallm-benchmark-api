@@ -1,14 +1,30 @@
-import sys
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from server.routes import main_services
+from server.routes.benchmark_routes import benchmark_router
+from server.database.connection import init_database
 import uvicorn
 import os
 import logging
+from contextlib import asynccontextmanager
+
 os.makedirs('logs', exist_ok=True)
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Initialize database on startup
+    try:
+        init_database()
+        logging.getLogger('main').info("Database initialized successfully")
+    except Exception as e:
+        logging.getLogger('main').error(f"Failed to initialize database: {e}")
+        raise
+    yield
+
 app = FastAPI(
-    title=os.getenv('APP_NAME','my-app'),
+    title=os.getenv('APP_NAME', 'LLM Benchmark API'),
+    description="API for running LLM benchmarks and managing results",
+    version="1.0.0",
+    lifespan=lifespan
 )
 
 app.add_middleware(
@@ -18,12 +34,24 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-app.include_router(main_services.generation_router)
-app.include_router(main_services.general_router)
+# Include routers
+app.include_router(benchmark_router)
+
+# Global exception handler
+@app.exception_handler(Exception)
+async def global_exception_handler(request, exc):
+    logger = logging.getLogger('main')
+    logger.error(f"Global exception: {exc}")
+    return HTTPException(status_code=500, detail="Internal server error")
 
 @app.get('/')
-def ping():
-    return{'msg':'acknowledged'}
+def health_check():
+    """Health check endpoint"""
+    return {
+        'status': 'healthy',
+        'service': 'LLM Benchmark API',
+        'version': '1.0.0'
+    }
 
 # 
 
