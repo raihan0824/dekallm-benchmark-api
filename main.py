@@ -57,22 +57,7 @@ def health_check():
 
 if __name__ == '__main__':
     # Setup logging here
-    class FileAndConsoleHandler(logging.StreamHandler):
-        def __init__(self, filename, *args, **kwargs):
-            super().__init__(*args, **kwargs)
-            self.file_handler = logging.FileHandler(filename)
-
-        def emit(self, record):
-            # Write log to the console
-            super().emit(record)
-            
-            # Write log to the file
-            self.file_handler.emit(record)
-
-        def close(self):
-            self.file_handler.close()
-
-    handler = FileAndConsoleHandler(f'./logs/{os.getenv('APP_NAME','my-app')}.log')
+    handler = logging.StreamHandler()
     handler.setLevel(logging.DEBUG)
 
     formatter = logging.Formatter('[%(asctime)s] - %(name)s - %(levelname)s - %(message)s')
