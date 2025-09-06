@@ -1,10 +1,15 @@
+#TODO: Make this script more elegant and robust.
+
 import os
 import time
 import random
 import json
 import uuid
 import statistics
-from locust import HttpUser, task, between, events 
+import threading
+from locust import HttpUser, task, between, events
+from transformers import AutoTokenizer 
+from datasets import load_dataset 
 import tempfile
 from dotenv import load_dotenv
 import logging
@@ -13,6 +18,51 @@ logger = logging.getLogger(__name__)
 
 # Load default environment variables
 load_dotenv()
+
+# Global variables that will be set when needed
+tokenizer = None
+prompts = None
+model_name = None
+_initialization_lock = threading.Lock()
+_initialized = False
+
+def initialize_benchmark_resources():
+    """Initialize tokenizer and dataset when actually running a benchmark (thread-safe)"""
+    global tokenizer, prompts, model_name, _initialized
+    
+    # Thread-safe check
+    if _initialized:
+        return
+    
+    with _initialization_lock:
+        # Double-check after acquiring lock
+        if _initialized:
+            return
+            
+        model_name = str(os.getenv("LOCUST_MODEL"))
+        tokenizer_name = str(os.getenv("LOCUST_TOKENIZER"))
+        dataset_name = str(os.getenv("LOCUST_DATASET", "mteb/banking77"))
+        
+        if not model_name or model_name == "None":
+            raise ValueError("LOCUST_MODEL environment variable is required")
+        if not tokenizer_name or tokenizer_name == "None":
+            raise ValueError("LOCUST_TOKENIZER environment variable is required")
+        
+        logger.info(f"Starting tokenizer download for: {tokenizer_name}")
+        # Initialize tokenizer with user-specified tokenizer
+        tokenizer = AutoTokenizer.from_pretrained(
+            tokenizer_name,
+            token=os.getenv("HUGGINGFACE_TOKEN")
+        )
+        logger.info(f"Tokenizer downloaded successfully: {tokenizer_name}")
+
+        logger.info(f"Starting dataset download for: {dataset_name}")
+        # Load dataset prompts
+        dataset = load_dataset(dataset_name, split="test")
+        prompts = dataset["text"]
+        logger.info(f"Dataset downloaded successfully: {dataset_name} ({len(prompts)} prompts)")
+        
+        _initialized = True
 
 # Global variables for metrics collection
 ttft_times = []
@@ -27,7 +77,6 @@ total_output_tokens = 0
 METRICS_FILE = os.path.join(tempfile.gettempdir(), 'locust_metrics.json')
 
 def calculate_stats(data):
-    """Calculate statistics for a list of values"""
     if not data:
         return {
             "average": 0,
@@ -42,43 +91,18 @@ def calculate_stats(data):
         "median": round(statistics.median(data), 2),
     }
 
-def initialize_tokenizer_and_dataset():
-    """Initialize tokenizer and dataset for benchmark"""
-    try:
-        model_name = str(os.getenv("LOCUST_MODEL", "deepseek-ai/DeepSeek-R1-70B"))
-        tokenizer_name = str(os.getenv("LOCUST_TOKENIZER", "deepseek-ai/DeepSeek-R1"))
-        dataset_name = str(os.getenv("LOCUST_DATASET", "mteb/banking77"))
-        
-        # Initialize tokenizer with user-specified tokenizer
-        tokenizer = AutoTokenizer.from_pretrained(
-            tokenizer_name,
-            token=os.getenv("HUGGINGFACE_TOKEN")
-        )
-        
-        # Load dataset prompts (configurable)
-        dataset = load_dataset(dataset_name, split="test")
-        prompts = dataset["text"]
-        
-        logger.info(f"Initialized with dataset: {dataset_name}")
-        return tokenizer, prompts
-    except Exception as e:
-        logger.error(f"Error initializing tokenizer and dataset: {e}")
-        raise
-
 class LLMBenchmarkUser(HttpUser):
-    """Locust user class for LLM benchmarking"""
+    # Set wait time between tasks to 0.5 to 5 seconds
     wait_time = between(0.5, 5)
-    
-    def on_start(self):
-        """Initialize tokenizer and prompts for this user"""
-        self.tokenizer, self.prompts = initialize_tokenizer_and_dataset()
 
-    @task()
+    @task(1)
     def generate_response(self):
-        """Main benchmark task - send LLM generation request"""
         global total_input_tokens, total_output_tokens, start_benchmark_time
         global ttft_times, end_to_end_latencies, inter_token_latencies, tokens_per_second_list
 
+        # Initialize resources on first call
+        initialize_benchmark_resources()
+        
         if start_benchmark_time is None:
             start_benchmark_time = time.time()
 
@@ -88,13 +112,12 @@ class LLMBenchmarkUser(HttpUser):
         tokens = []
         
         try:
-            # Get environment variables
-            model_name = str(os.getenv("LOCUST_MODEL", "deepseek-ai/DeepSeek-R1-70B"))
-            
             # Select a random prompt and append UUID
-            input_text = f"{random.choice(self.prompts)} {uuid.uuid4()}"
-            input_length = len(self.tokenizer(input_text)['input_ids'])
+            input_text = f"{random.choice(prompts)} {uuid.uuid4()}"
+            input_length = len(tokenizer(input_text)['input_ids'])
             total_input_tokens += input_length
+
+            logger.info(f"Making HTTP request to /v1/chat/completions with model: {model_name}")
 
             # Send request
             headers = {
@@ -102,15 +125,15 @@ class LLMBenchmarkUser(HttpUser):
                 'Accept': 'application/json'
             }
             
-            # # Only add auth header if token is provided and not a placeholder
-            # auth_token = os.getenv("API_AUTH_TOKEN")
-            # if auth_token and auth_token != "your_api_token_here":
-            #     headers['Authorization'] = f'Bearer {auth_token}'
-            
+            # Only add auth header if token is provided and not a placeholder
+            auth_token = os.getenv("API_AUTH_TOKEN")
+            if auth_token and auth_token != "your_api_token_here":
+                headers['Authorization'] = f'Bearer {auth_token}'
+
             response = self.client.post(
                 url="/v1/chat/completions",
                 headers=headers,
-                json={
+                data=json.dumps({
                     "model": model_name,
                     "messages": [{"role": "user", "content": input_text}],
                     "stream": True,
@@ -118,9 +141,11 @@ class LLMBenchmarkUser(HttpUser):
                     "top_p": 0.9,
                     "max_tokens": 128,
                     "min_tokens": 20
-                },
+                }),
                 stream=True
             )
+            
+            logger.info(f"HTTP response status: {response.status_code}")
 
             # Process streamed response
             for line in response.iter_lines():
@@ -147,18 +172,12 @@ class LLMBenchmarkUser(HttpUser):
             token_speed = output_length / (end_time - start_time)
             tokens_per_second_list.append(token_speed)
 
+            # Debug print
+            logger.debug(f"Request completed - TTFT: {ttft_times[-1]:.2f}ms, E2E: {e2e_latency:.2f}ms")
+
         except Exception as e:
             logger.error(f"Error in benchmark request: {str(e)}")
-            # Log additional debug info
-            logger.error(f"Request URL: /v1/chat/completions")
-            logger.error(f"Model: {model_name}")
-            if 'response' in locals():
-                logger.error(f"Response status: {response.status_code if hasattr(response, 'status_code') else 'Unknown'}")
-                try:
-                    logger.error(f"Response text: {response.text[:500] if hasattr(response, 'text') else 'No text'}")
-                except:
-                    logger.error("Could not get response text")
-            raise  # Re-raise the exception so Locust marks the request as failed
+            raise
 
 @events.quitting.add_listener
 def display_metrics_summary(environment, **kwargs):
@@ -225,16 +244,14 @@ def get_current_metrics():
             }
         }
 
-# Commenting out LoadTestShape to use default Locust behavior with command-line args
+# Comment out LoadTestShape to use default Locust behavior with command-line args
 # class StagesShape(LoadTestShape):
-#     """Fixed staged load pattern that runs through predefined stages sequentially"""
+#     """
+#     Fixed staged load pattern that runs through predefined stages sequentially
+#     """
 
 #     def tick(self):
 #         run_time = self.get_run_time()
-        
-#         locust_users = int(os.getenv("LOCUST_USERS", 100))
-#         locust_spawn_rate = int(os.getenv("LOCUST_SPAWN_RATE", 100))
-#         locust_duration = int(os.getenv("LOCUST_DURATION", 60))
         
 #         if run_time < locust_duration:
 #             return (locust_users, locust_spawn_rate)
