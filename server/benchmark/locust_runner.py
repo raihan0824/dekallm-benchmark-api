@@ -4,9 +4,7 @@ import random
 import json
 import uuid
 import statistics
-from locust import HttpUser, task, between, events, LoadTestShape
-from transformers import AutoTokenizer 
-from datasets import load_dataset 
+from locust import HttpUser, task, between, events 
 import tempfile
 from dotenv import load_dotenv
 import logging
@@ -99,13 +97,19 @@ class LLMBenchmarkUser(HttpUser):
             total_input_tokens += input_length
 
             # Send request
+            headers = {
+                'Content-type': 'application/json',
+                'Accept': 'application/json'
+            }
+            
+            # # Only add auth header if token is provided and not a placeholder
+            # auth_token = os.getenv("API_AUTH_TOKEN")
+            # if auth_token and auth_token != "your_api_token_here":
+            #     headers['Authorization'] = f'Bearer {auth_token}'
+            
             response = self.client.post(
                 url="/v1/chat/completions",
-                headers={
-                    'Content-type': 'application/json',
-                    'Accept': 'application/json',
-                    'Authorization': f'Bearer {os.getenv("API_AUTH_TOKEN")}'
-                },
+                headers=headers,
                 json={
                     "model": model_name,
                     "messages": [{"role": "user", "content": input_text}],
@@ -145,6 +149,16 @@ class LLMBenchmarkUser(HttpUser):
 
         except Exception as e:
             logger.error(f"Error in benchmark request: {str(e)}")
+            # Log additional debug info
+            logger.error(f"Request URL: /v1/chat/completions")
+            logger.error(f"Model: {model_name}")
+            if 'response' in locals():
+                logger.error(f"Response status: {response.status_code if hasattr(response, 'status_code') else 'Unknown'}")
+                try:
+                    logger.error(f"Response text: {response.text[:500] if hasattr(response, 'text') else 'No text'}")
+                except:
+                    logger.error("Could not get response text")
+            raise  # Re-raise the exception so Locust marks the request as failed
 
 @events.quitting.add_listener
 def display_metrics_summary(environment, **kwargs):
@@ -211,19 +225,20 @@ def get_current_metrics():
             }
         }
 
-class StagesShape(LoadTestShape):
-    """Fixed staged load pattern that runs through predefined stages sequentially"""
+# Commenting out LoadTestShape to use default Locust behavior with command-line args
+# class StagesShape(LoadTestShape):
+#     """Fixed staged load pattern that runs through predefined stages sequentially"""
 
-    def tick(self):
-        run_time = self.get_run_time()
+#     def tick(self):
+#         run_time = self.get_run_time()
         
-        locust_users = int(os.getenv("LOCUST_USERS", 100))
-        locust_spawn_rate = int(os.getenv("LOCUST_SPAWN_RATE", 100))
-        locust_duration = int(os.getenv("LOCUST_DURATION", 60))
+#         locust_users = int(os.getenv("LOCUST_USERS", 100))
+#         locust_spawn_rate = int(os.getenv("LOCUST_SPAWN_RATE", 100))
+#         locust_duration = int(os.getenv("LOCUST_DURATION", 60))
         
-        if run_time < locust_duration:
-            return (locust_users, locust_spawn_rate)
-        return None
+#         if run_time < locust_duration:
+#             return (locust_users, locust_spawn_rate)
+#         return None
 
 # Initialize benchmark start time
 start_benchmark_time = time.time()

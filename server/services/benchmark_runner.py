@@ -86,6 +86,13 @@ class BenchmarkRunner:
             logger.info(f"Using tokenizer: {tokenizer}")
             logger.info(f"Using dataset: {dataset}")
             
+            # Clear any existing metrics file to ensure fresh results
+            import tempfile
+            metrics_file = os.path.join(tempfile.gettempdir(), 'locust_metrics.json')
+            if os.path.exists(metrics_file):
+                os.remove(metrics_file)
+                logger.info("Cleared existing metrics file")
+            
             # Set environment variables for Locust
             env_vars = {
                 "LOCUST_USERS": str(users),
