@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from typing import Dict, Any, Optional, List
 from datetime import datetime
 
@@ -20,13 +20,14 @@ class BenchmarkMetricsData(BaseModel):
     throughput: BenchmarkThroughput
 
 class BenchmarkConfiguration(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    
     user: int
     spawnrate: int
     model: str
     tokenizer: str
     url: str
     duration: int
-    dataset: str
 
 class BenchmarkResults(BaseModel):
     status: str
