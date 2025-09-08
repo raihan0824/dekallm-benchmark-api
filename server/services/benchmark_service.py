@@ -17,21 +17,22 @@ class BenchmarkService:
         model: str,
         tokenizer: str,
         dataset: str,
+        notes: str,
         status: str,
         results: dict
     ) -> BenchmarkResult:
         """Create a new benchmark result in database"""
         try:
             insert_query = """
-            INSERT INTO benchmark_results (url, users, spawn_rate, duration, model, tokenizer, dataset, status, results)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+            INSERT INTO benchmark_results (url, users, spawn_rate, duration, model, tokenizer, dataset, notes, status, results)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             RETURNING id, created_at;
             """
             
             with get_db_connection() as conn:
                 with conn.cursor() as cursor:
                     cursor.execute(insert_query, (
-                        url, users, spawn_rate, duration, model, tokenizer, dataset, status, json.dumps(results)
+                        url, users, spawn_rate, duration, model, tokenizer, dataset, notes, status, json.dumps(results)
                     ))
                     row = cursor.fetchone()
                     
@@ -44,6 +45,7 @@ class BenchmarkService:
                         model=model,
                         tokenizer=tokenizer,
                         dataset=dataset,
+                        notes=notes,
                         status=status,
                         results=results,
                         created_at=row['created_at']
@@ -57,7 +59,7 @@ class BenchmarkService:
         """Get benchmark result by ID"""
         try:
             select_query = """
-            SELECT id, url, users, spawn_rate, duration, model, tokenizer, dataset, status, results, created_at
+            SELECT id, url, users, spawn_rate, duration, model, tokenizer, dataset, notes, status, results, created_at
             FROM benchmark_results
             WHERE id = %s;
             """
@@ -86,7 +88,7 @@ class BenchmarkService:
             
             # Get paginated results
             select_query = """
-            SELECT id, url, users, spawn_rate, duration, model, tokenizer, dataset, status, results, created_at
+            SELECT id, url, users, spawn_rate, duration, model, tokenizer, dataset, notes, status, results, created_at
             FROM benchmark_results
             ORDER BY created_at DESC
             LIMIT %s OFFSET %s;
@@ -119,6 +121,7 @@ class BenchmarkService:
         model: Optional[str] = None,
         tokenizer: Optional[str] = None,
         dataset: Optional[str] = None,
+        notes: Optional[str] = None,
         status: Optional[str] = None,
         results: Optional[dict] = None
     ) -> Optional[BenchmarkResult]:
@@ -149,6 +152,9 @@ class BenchmarkService:
             if dataset is not None:
                 updates.append("dataset = %s")
                 params.append(dataset)
+            if notes is not None:
+                updates.append("notes = %s")
+                params.append(notes)
             if status is not None:
                 updates.append("status = %s")
                 params.append(status)
@@ -164,7 +170,7 @@ class BenchmarkService:
             UPDATE benchmark_results 
             SET {', '.join(updates)}
             WHERE id = %s
-            RETURNING id, url, users, spawn_rate, duration, model, tokenizer, dataset, status, results, created_at;
+            RETURNING id, url, users, spawn_rate, duration, model, tokenizer, dataset, notes, status, results, created_at;
             """
             
             with get_db_connection() as conn:

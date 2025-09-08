@@ -24,7 +24,8 @@ async def run_benchmark_test(
     tokenizer: Optional[str] = Query(default=None, description="Tokenizer name"),
     url: Optional[str] = Query(default="https://dekallm.cloudeka.ai", description="Target API URL"),
     duration: Optional[int] = Query(default=60, description="Test duration in seconds"),
-    dataset: Optional[str] = Query(default="mteb/banking77", description="Dataset for benchmark prompts")
+    dataset: Optional[str] = Query(default="mteb/banking77", description="Dataset for benchmark prompts"),
+    notes: Optional[str] = Query(default=None, description="Aditional Description")
 ):
     """
     Run a benchmark test and save results to database
@@ -52,6 +53,7 @@ async def run_benchmark_test(
             model=results["configuration"]["model"],
             tokenizer=results["configuration"]["tokenizer"],
             dataset=results["configuration"]["dataset"],
+            notes=notes,
             status=results["status"],
             results=results
         )
@@ -114,6 +116,7 @@ async def update_benchmark(
     model: Optional[str] = None,
     tokenizer: Optional[str] = None,
     dataset: Optional[str] = None,
+    notes: Optional[str] = None,
     status: Optional[str] = None
 ):
     """
@@ -129,6 +132,7 @@ async def update_benchmark(
             model=model,
             tokenizer=tokenizer,
             dataset=dataset,
+            notes=notes,
             status=status
         )
         

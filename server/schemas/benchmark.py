@@ -52,6 +52,7 @@ class BenchmarkResponse(BaseModel):
     model: str
     tokenizer: str
     dataset: str
+    notes: Optional[str]
     status: str
     results: BenchmarkResults
     createdAt: datetime
@@ -75,6 +76,7 @@ class BenchmarkResult:
         dataset: str,
         status: str,
         results: Dict[str, Any],
+        notes: Optional[str],
         id: Optional[int] = None,
         created_at: Optional[datetime] = None
     ):
@@ -86,6 +88,7 @@ class BenchmarkResult:
         self.model = model
         self.tokenizer = tokenizer
         self.dataset = dataset
+        self.notes = notes
         self.status = status
         self.results = results
         self.created_at = created_at
@@ -101,6 +104,7 @@ class BenchmarkResult:
             "model": self.model,
             "tokenizer": self.tokenizer,
             "dataset": self.dataset,
+            "notes": self.notes if self.notes is not None else "",
             "status": self.status,
             "results": self.results,
             "createdAt": self.created_at.isoformat() if self.created_at else None
@@ -118,6 +122,7 @@ class BenchmarkResult:
             model=row['model'],
             tokenizer=row['tokenizer'],
             dataset=row['dataset'],
+            notes=row['notes'],
             status=row['status'],
             results=row['results'],
             created_at=row['created_at']
