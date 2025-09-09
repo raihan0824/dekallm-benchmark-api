@@ -6,3 +6,5 @@ locust
 transformers
 datasets
 requests
+openai
+huggingface_hub

@@ -27,42 +27,46 @@ _initialization_lock = threading.Lock()
 _initialized = False
 
 def initialize_benchmark_resources():
-    """Initialize tokenizer and dataset when actually running a benchmark (thread-safe)"""
-    global tokenizer, prompts, model_name, _initialized
-    
-    # Thread-safe check
-    if _initialized:
-        return
-    
-    with _initialization_lock:
-        # Double-check after acquiring lock
+    try:
+        """Initialize tokenizer and dataset when actually running a benchmark (thread-safe)"""
+        global tokenizer, prompts, model_name, _initialized
+        
+        # Thread-safe check
         if _initialized:
             return
+        
+        with _initialization_lock:
+            # Double-check after acquiring lock
+            if _initialized:
+                return
+                
+            model_name = str(os.getenv("LOCUST_MODEL"))
+            tokenizer_name = str(os.getenv("LOCUST_TOKENIZER"))
+            dataset_name = str(os.getenv("LOCUST_DATASET", "mteb/banking77"))
             
-        model_name = str(os.getenv("LOCUST_MODEL"))
-        tokenizer_name = str(os.getenv("LOCUST_TOKENIZER"))
-        dataset_name = str(os.getenv("LOCUST_DATASET", "mteb/banking77"))
-        
-        if not model_name or model_name == "None":
-            raise ValueError("LOCUST_MODEL environment variable is required")
-        if not tokenizer_name or tokenizer_name == "None":
-            raise ValueError("LOCUST_TOKENIZER environment variable is required")
-        
-        logger.info(f"Starting tokenizer download for: {tokenizer_name}")
-        # Initialize tokenizer with user-specified tokenizer
-        tokenizer = AutoTokenizer.from_pretrained(
-            tokenizer_name,
-            token=os.getenv("HUGGINGFACE_TOKEN")
-        )
-        logger.info(f"Tokenizer downloaded successfully: {tokenizer_name}")
+            if not model_name or model_name == "None":
+                raise ValueError("LOCUST_MODEL environment variable is required")
+            if not tokenizer_name or tokenizer_name == "None":
+                raise ValueError("LOCUST_TOKENIZER environment variable is required")
+            
+            logger.info(f"Starting tokenizer download for: {tokenizer_name}")
+            # Initialize tokenizer with user-specified tokenizer
+            tokenizer = AutoTokenizer.from_pretrained(
+                tokenizer_name,
+                token=os.getenv("HUGGINGFACE_TOKEN")
+            )
+            logger.info(f"Tokenizer downloaded successfully: {tokenizer_name}")
 
-        logger.info(f"Starting dataset download for: {dataset_name}")
-        # Load dataset prompts
-        dataset = load_dataset(dataset_name, split="test")
-        prompts = dataset["text"]
-        logger.info(f"Dataset downloaded successfully: {dataset_name} ({len(prompts)} prompts)")
-        
-        _initialized = True
+            logger.info(f"Starting dataset download for: {dataset_name}")
+            # Load dataset prompts
+            dataset = load_dataset(dataset_name, split="test")
+            prompts = dataset["text"]
+            logger.info(f"Dataset downloaded successfully: {dataset_name} ({len(prompts)} prompts)")
+            
+            _initialized = True
+    except Exception as e:
+        logger.error(f"Error in benchmark init: {str(e)}")
+        raise
 
 # Global variables for metrics collection
 ttft_times = []
@@ -94,12 +98,13 @@ def calculate_stats(data):
 class LLMBenchmarkUser(HttpUser):
     # Set wait time between tasks to 0.5 to 5 seconds
     wait_time = between(0.5, 5)
+    logger.info("initiate response")
 
     @task(1)
     def generate_response(self):
         global total_input_tokens, total_output_tokens, start_benchmark_time
         global ttft_times, end_to_end_latencies, inter_token_latencies, tokens_per_second_list
-
+        logger.info("initiate response")
         # Initialize resources on first call
         initialize_benchmark_resources()
         

@@ -5,9 +5,12 @@ import os
 import subprocess
 import logging
 import requests
+from openai import OpenAI
 from typing import Dict, Any, Optional
 from server.benchmark.locust_runner import get_current_metrics
 from dotenv import load_dotenv
+from transformers import AutoTokenizer 
+from huggingface_hub import list_repo_files
 
 load_dotenv()
 logger = logging.getLogger(__name__)
@@ -77,9 +80,34 @@ class BenchmarkRunner:
             
             # Set tokenizer to model if not provided
             if tokenizer is None:
-                logger.info("Tokenizer not provided, using model name")
-                tokenizer = model
-                
+                try:
+                    repo_files = list_repo_files(
+                        repo_id=model,
+                        token=os.getenv('HUGGINGFACE_TOKEN')
+                    )
+                    if "tokenizer.json" in repo_files or "tokenizer_config.json" in repo_files:
+                        tokenizer=model
+                        logger.info(f"set {tokenizer} as a token from model")
+                except:
+                    client = OpenAI(
+                        base_url=os.getenv('LOCUST_HOST'),
+                        api_key=os.getenv('API_AUTH_TOKEN')
+                    )
+                    response = client.chat.completions.create(
+                        model=model,
+                        messages=[{"role": "user"}],
+                        temperature=0.5,
+                        max_tokens=10
+                    )
+                    token=response.model
+                    repo_files = list_repo_files(
+                        repo_id=token,
+                        token=os.getenv('HUGGINGFACE_TOKEN')
+                    )
+                    if "tokenizer.json" in repo_files or "tokenizer_config.json" in repo_files:
+                        tokenizer=token      
+                        logger.info(f"set {tokenizer} as a token from huggingface")
+            
             # Set dataset default if not provided
             if dataset is None:
                 logger.info("Dataset not provided, using default")
