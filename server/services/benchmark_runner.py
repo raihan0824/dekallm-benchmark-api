@@ -19,13 +19,13 @@ class BenchmarkRunner:
     """Service class to run benchmark tests"""
     
     @staticmethod
-    def validate_url(url: str) -> bool:
+    def validate_url(url: str, api_key: str) -> bool:
         """Validate if the target URL is accessible"""
         try:
             logger.info(f"Testing url = {url}")
             response = requests.get(
                 f"{url}/v1/models", 
-                headers={"Authorization": f"Bearer {os.getenv('API_AUTH_TOKEN')}"}, 
+                headers={"Authorization": f"Bearer {api_key}"}, 
                 timeout=10
             )
             logger.info(f"URL validation response status: {response.status_code}")
@@ -35,13 +35,13 @@ class BenchmarkRunner:
             return False
     
     @staticmethod
-    def get_default_model(url: str) -> str:
+    def get_default_model(url: str, api_key: str) -> str:
         """Get default model from the target API"""
         try:
             model_endpoint = f"{url}/v1/models"
             response = requests.get(
                 model_endpoint, 
-                headers={"Authorization": f"Bearer {os.getenv('API_AUTH_TOKEN')}"}
+                headers={"Authorization": f"Bearer {api_key}"}
             )
             
             if response.status_code == 200:
@@ -63,6 +63,7 @@ class BenchmarkRunner:
         duration: int,
         url: str,
         model: Optional[str] = None,
+        api_key: Optional[str] = None,
         tokenizer: Optional[str] = None,
         dataset: Optional[str] = None
     ) -> Dict[str, Any]:
@@ -70,13 +71,13 @@ class BenchmarkRunner:
         
         try:
             # Validate URL first
-            if not BenchmarkRunner.validate_url(url):
+            if not BenchmarkRunner.validate_url(url, api_key):
                 raise Exception(f"Target URL {url} is not accessible")
             
             # Get model if not provided
             if model is None:
                 logger.info("Model not provided, fetching default model")
-                model = BenchmarkRunner.get_default_model(url)
+                model = BenchmarkRunner.get_default_model(url, api_key)
             
             # Set tokenizer to model if not provided
             if tokenizer is None:
@@ -91,7 +92,7 @@ class BenchmarkRunner:
                 except:
                     client = OpenAI(
                         base_url=os.getenv('LOCUST_HOST'),
-                        api_key=os.getenv('API_AUTH_TOKEN')
+                        api_key=api_key
                     )
                     response = client.chat.completions.create(
                         model=model,
@@ -131,6 +132,7 @@ class BenchmarkRunner:
                 "LOCUST_DURATION": str(duration),
                 "LOCUST_HOST": str(url),
                 "LOCUST_MODEL": model,
+                "LOCUST_API_KEY": api_key,
                 "LOCUST_TOKENIZER": tokenizer,
                 "LOCUST_DATASET": dataset
             }

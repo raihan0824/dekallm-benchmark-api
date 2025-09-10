@@ -38,6 +38,7 @@ class BenchmarkRequest(BaseModel):
     user: Optional[int] = 100
     spawnrate: Optional[int] = 100
     model: Optional[str] = None
+    api_key: Optional[str] = None
     tokenizer: Optional[str] = None
     url: Optional[str] = "https://dekallm.cloudeka.ai"
     duration: Optional[int] = 60

@@ -21,6 +21,7 @@ async def run_benchmark_test(
     user: Optional[int] = Query(default=100, description="Number of concurrent users"),
     spawnrate: Optional[int] = Query(default=100, description="User spawn rate per second"),
     model: Optional[str] = Query(default=None, description="Model name to benchmark"),
+    api_key: Optional[str] = Query(default=None, description="Model api key"),
     tokenizer: Optional[str] = Query(default=None, description="Tokenizer name"),
     url: Optional[str] = Query(default="https://dekallm.cloudeka.ai", description="Target API URL"),
     duration: Optional[int] = Query(default=60, description="Test duration in seconds"),
@@ -40,6 +41,7 @@ async def run_benchmark_test(
             duration=duration,
             url=url,
             model=model,
+            api_key=api_key,
             tokenizer=tokenizer,
             dataset=dataset
         )
