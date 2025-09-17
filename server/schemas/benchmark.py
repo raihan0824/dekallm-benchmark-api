@@ -38,6 +38,7 @@ class BenchmarkRequest(BaseModel):
     user: Optional[int] = 100
     spawnrate: Optional[int] = 100
     model: Optional[str] = None
+    api_key: Optional[str] = None
     tokenizer: Optional[str] = None
     url: Optional[str] = "https://dekallm.cloudeka.ai"
     duration: Optional[int] = 60
@@ -52,7 +53,9 @@ class BenchmarkResponse(BaseModel):
     model: str
     tokenizer: str
     dataset: str
+    notes: Optional[str]
     status: str
+    favorite: bool
     results: BenchmarkResults
     createdAt: datetime
 
@@ -73,8 +76,10 @@ class BenchmarkResult:
         model: str,
         tokenizer: str,
         dataset: str,
+        favorite: bool,
         status: str,
         results: Dict[str, Any],
+        notes: Optional[str],
         id: Optional[int] = None,
         created_at: Optional[datetime] = None
     ):
@@ -86,6 +91,8 @@ class BenchmarkResult:
         self.model = model
         self.tokenizer = tokenizer
         self.dataset = dataset
+        self.notes = notes
+        self.favorite = favorite
         self.status = status
         self.results = results
         self.created_at = created_at
@@ -101,6 +108,8 @@ class BenchmarkResult:
             "model": self.model,
             "tokenizer": self.tokenizer,
             "dataset": self.dataset,
+            "notes": self.notes if self.notes is not None else "",
+            "favorite": self.favorite,
             "status": self.status,
             "results": self.results,
             "createdAt": self.created_at.isoformat() if self.created_at else None
@@ -118,6 +127,8 @@ class BenchmarkResult:
             model=row['model'],
             tokenizer=row['tokenizer'],
             dataset=row['dataset'],
+            notes=row['notes'],
+            favorite=row['favorite'],
             status=row['status'],
             results=row['results'],
             created_at=row['created_at']

@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 benchmark_router = APIRouter(
     prefix="/api/v1/benchmarks",
     tags=["Benchmarks"],
-    dependencies=[Depends(get_current_user)]
+    # dependencies=[Depends(get_current_user)]
 )
 
 @benchmark_router.post("/run", response_model=BenchmarkResponse)
@@ -21,10 +21,12 @@ async def run_benchmark_test(
     user: Optional[int] = Query(default=100, description="Number of concurrent users"),
     spawnrate: Optional[int] = Query(default=100, description="User spawn rate per second"),
     model: Optional[str] = Query(default=None, description="Model name to benchmark"),
+    api_key: Optional[str] = Query(default=None, description="Model api key"),
     tokenizer: Optional[str] = Query(default=None, description="Tokenizer name"),
     url: Optional[str] = Query(default="https://dekallm.cloudeka.ai", description="Target API URL"),
     duration: Optional[int] = Query(default=60, description="Test duration in seconds"),
-    dataset: Optional[str] = Query(default="mteb/banking77", description="Dataset for benchmark prompts")
+    dataset: Optional[str] = Query(default="mteb/banking77", description="Dataset for benchmark prompts"),
+    notes: Optional[str] = Query(default=None, description="Aditional Description")
 ):
     """
     Run a benchmark test and save results to database
@@ -39,6 +41,7 @@ async def run_benchmark_test(
             duration=duration,
             url=url,
             model=model,
+            api_key=api_key,
             tokenizer=tokenizer,
             dataset=dataset
         )
@@ -52,6 +55,7 @@ async def run_benchmark_test(
             model=results["configuration"]["model"],
             tokenizer=results["configuration"]["tokenizer"],
             dataset=results["configuration"]["dataset"],
+            notes=notes,
             status=results["status"],
             results=results
         )
@@ -114,7 +118,9 @@ async def update_benchmark(
     model: Optional[str] = None,
     tokenizer: Optional[str] = None,
     dataset: Optional[str] = None,
-    status: Optional[str] = None
+    notes: Optional[str] = None,
+    status: Optional[str] = None,
+    favorite: Optional[bool] = None
 ):
     """
     Update benchmark result
@@ -129,7 +135,9 @@ async def update_benchmark(
             model=model,
             tokenizer=tokenizer,
             dataset=dataset,
-            status=status
+            notes=notes,
+            status=status,
+            favorite=favorite
         )
         
         if not benchmark:
