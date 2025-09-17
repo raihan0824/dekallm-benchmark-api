@@ -47,6 +47,7 @@ def init_database():
         model VARCHAR(255) NOT NULL,
         tokenizer VARCHAR(255) NOT NULL,
         dataset VARCHAR(255) NOT NULL DEFAULT 'mteb/banking77',
+        favorite BOOLEAN NOT NULL DEFAULT FALSE,
         notes VARCHAR(255) NOT NULL,
         status VARCHAR(100) NOT NULL,
         results JSONB NOT NULL,

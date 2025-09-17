@@ -19,20 +19,21 @@ class BenchmarkService:
         dataset: str,
         notes: str,
         status: str,
-        results: dict
+        results: dict,
+        favorite: bool
     ) -> BenchmarkResult:
         """Create a new benchmark result in database"""
         try:
             insert_query = """
-            INSERT INTO benchmark_results (url, users, spawn_rate, duration, model, tokenizer, dataset, notes, status, results)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            INSERT INTO benchmark_results (url, users, spawn_rate, duration, model, tokenizer, dataset, notes, status, results, favorite)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             RETURNING id, created_at;
             """
             
             with get_db_connection() as conn:
                 with conn.cursor() as cursor:
                     cursor.execute(insert_query, (
-                        url, users, spawn_rate, duration, model, tokenizer, dataset, notes, status, json.dumps(results)
+                        url, users, spawn_rate, duration, model, tokenizer, dataset, notes, status, favorite, json.dumps(results) 
                     ))
                     row = cursor.fetchone()
                     
@@ -48,6 +49,7 @@ class BenchmarkService:
                         notes=notes,
                         status=status,
                         results=results,
+                        favorite=favorite,
                         created_at=row['created_at']
                     )
         except Exception as e:
@@ -59,8 +61,8 @@ class BenchmarkService:
         """Get benchmark result by ID"""
         try:
             select_query = """
-            SELECT id, url, users, spawn_rate, duration, model, tokenizer, dataset, notes, status, results, created_at
-            FROM benchmark_results
+            SELECT id, url, users, spawn_rate, duration, model, tokenizer, dataset, notes, status, results, favorite, created_at
+            FROM benchmark_results  
             WHERE id = %s;
             """
             
@@ -88,7 +90,7 @@ class BenchmarkService:
             
             # Get paginated results
             select_query = """
-            SELECT id, url, users, spawn_rate, duration, model, tokenizer, dataset, notes, status, results, created_at
+            SELECT id, url, users, spawn_rate, duration, model, tokenizer, dataset, notes, status, results, favorite, created_at
             FROM benchmark_results
             ORDER BY created_at DESC
             LIMIT %s OFFSET %s;
@@ -123,7 +125,8 @@ class BenchmarkService:
         dataset: Optional[str] = None,
         notes: Optional[str] = None,
         status: Optional[str] = None,
-        results: Optional[dict] = None
+        results: Optional[dict] = None,
+        favorite: Optional[bool] = None
     ) -> Optional[BenchmarkResult]:
         """Update benchmark result"""
         try:
@@ -161,7 +164,9 @@ class BenchmarkService:
             if results is not None:
                 updates.append("results = %s")
                 params.append(json.dumps(results))
-            
+            if favorite is not None:
+                updates.append("favorite = %s")
+                params.append(favorite)
             if not updates:
                 return BenchmarkService.get_benchmark_by_id(benchmark_id)
             
@@ -170,7 +175,7 @@ class BenchmarkService:
             UPDATE benchmark_results 
             SET {', '.join(updates)}
             WHERE id = %s
-            RETURNING id, url, users, spawn_rate, duration, model, tokenizer, dataset, notes, status, results, created_at;
+            RETURNING id, url, users, spawn_rate, duration, model, tokenizer, dataset, notes, status, results, favorite, created_at;
             """
             
             with get_db_connection() as conn:

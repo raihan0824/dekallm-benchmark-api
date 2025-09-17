@@ -55,6 +55,7 @@ class BenchmarkResponse(BaseModel):
     dataset: str
     notes: Optional[str]
     status: str
+    favorite: bool
     results: BenchmarkResults
     createdAt: datetime
 
@@ -75,6 +76,7 @@ class BenchmarkResult:
         model: str,
         tokenizer: str,
         dataset: str,
+        favorite: bool,
         status: str,
         results: Dict[str, Any],
         notes: Optional[str],
@@ -90,6 +92,7 @@ class BenchmarkResult:
         self.tokenizer = tokenizer
         self.dataset = dataset
         self.notes = notes
+        self.favorite = favorite
         self.status = status
         self.results = results
         self.created_at = created_at
@@ -106,6 +109,7 @@ class BenchmarkResult:
             "tokenizer": self.tokenizer,
             "dataset": self.dataset,
             "notes": self.notes if self.notes is not None else "",
+            "favorite": self.favorite,
             "status": self.status,
             "results": self.results,
             "createdAt": self.created_at.isoformat() if self.created_at else None
@@ -124,6 +128,7 @@ class BenchmarkResult:
             tokenizer=row['tokenizer'],
             dataset=row['dataset'],
             notes=row['notes'],
+            favorite=row['favorite'],
             status=row['status'],
             results=row['results'],
             created_at=row['created_at']

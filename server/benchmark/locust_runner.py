@@ -98,13 +98,13 @@ def calculate_stats(data):
 class LLMBenchmarkUser(HttpUser):
     # Set wait time between tasks to 0.5 to 5 seconds
     wait_time = between(0.5, 5)
-    logger.info("initiate response")
+    # logger.info("initiate response")
 
     @task(1)
     def generate_response(self):
         global total_input_tokens, total_output_tokens, start_benchmark_time
         global ttft_times, end_to_end_latencies, inter_token_latencies, tokens_per_second_list
-        logger.info("initiate response")
+        # logger.info("initiate response")
         # Initialize resources on first call
         initialize_benchmark_resources()
         
@@ -124,7 +124,7 @@ class LLMBenchmarkUser(HttpUser):
             input_length = len(tokenizer(input_text)['input_ids'])
             total_input_tokens += input_length
 
-            logger.info(f"Making HTTP request to /v1/chat/completions with model: {model_name}")
+            # logger.info(f"Making HTTP request to /v1/chat/completions with model: {model_name}")
 
             # Send request
             headers = {
@@ -185,7 +185,26 @@ class LLMBenchmarkUser(HttpUser):
 
             # Calculate the actual number of output tokens using the tokenizer
             output_tokens = tokenizer(output_text)['input_ids']
+            ### start of debug
+            logger.info(f"/n==output token==/n{output_tokens}/n")
+            logger.info(f"/n==output text==/n{output_text}/n")
             output_length = len(output_tokens)
+
+
+            # Encode your text
+            encoding = tokenizer(output_text)
+
+            # Get token IDs
+            tokens = encoding["input_ids"]
+
+            # Convert IDs to token strings (subwords)
+            token_strs = tokenizer.convert_ids_to_tokens(tokens)
+
+            # Now pair each ID with its decoded string
+            for tid, tstr in zip(tokens, token_strs):
+                logger.info(f"{tid:<8} → {tstr}")
+
+            ### end of debug
             total_output_tokens += output_length  # Accumulate total output tokens
 
             # Calculate inter-token latency

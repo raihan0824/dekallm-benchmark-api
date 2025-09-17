@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 benchmark_router = APIRouter(
     prefix="/api/v1/benchmarks",
     tags=["Benchmarks"],
-    dependencies=[Depends(get_current_user)]
+    # dependencies=[Depends(get_current_user)]
 )
 
 @benchmark_router.post("/run", response_model=BenchmarkResponse)
@@ -119,7 +119,8 @@ async def update_benchmark(
     tokenizer: Optional[str] = None,
     dataset: Optional[str] = None,
     notes: Optional[str] = None,
-    status: Optional[str] = None
+    status: Optional[str] = None,
+    favorite: Optional[bool] = None
 ):
     """
     Update benchmark result
@@ -135,7 +136,8 @@ async def update_benchmark(
             tokenizer=tokenizer,
             dataset=dataset,
             notes=notes,
-            status=status
+            status=status,
+            favorite=favorite
         )
         
         if not benchmark:
